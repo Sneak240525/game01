@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Black Cube Civilization v6</title>
+<style>
+html,body{margin:0;padding:0;overflow:hidden;background:#0b0d10;color:#eee;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+canvas{display:block;background:#172119}
+#ui{position:fixed;left:10px;top:10px;width:350px;max-height:calc(100vh - 20px);overflow:auto;background:rgba(12,14,18,.92);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.35);user-select:none}
+h1{font-size:18px;margin:0 0 8px}h2{font-size:14px;color:#f0cf78;margin:10px 0 6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12)}
+.row{display:flex;justify-content:space-between;font-size:13px;margin:4px 0;gap:8px}
+button{width:100%;margin:3px 0;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#263344;color:white;cursor:pointer;text-align:left}
+button:hover{background:#334962}button.active{outline:2px solid #f0cf78;background:#40513e}button:disabled{opacity:.42;cursor:not-allowed}
+.slider-row{font-size:12px;margin:6px 0}.slider-row label{display:flex;justify-content:space-between}input[type=range]{width:100%}
+#log{font-size:12px;line-height:1.35;color:#ddd;min-height:54px}.danger{color:#ff8c8c}.ok{color:#a6e38b}
+#hint{position:fixed;right:12px;bottom:12px;background:rgba(12,14,18,.86);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:10px 12px;color:#ddd;font-size:13px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+<h1>블랙큐브 문명 v6</h1>
+<div class="row"><span>시대 판정</span><b id="era">부족</b></div>
+<div class="row"><span>블랙큐브 HP</span><b id="cubeHp">100</b></div>
+<div class="row"><span>다음 웨이브</span><b id="wave">0</b></div>
+<div class="row"><span>인구</span><b id="pop">0</b></div>
+<div class="row"><span>식량</span><b id="food">0</b></div>
+<div class="row"><span>목재</span><b id="wood">0</b></div>
+<div class="row"><span>지식</span><b id="knowledge">0</b></div>
+<div class="row" id="stoneRow"><span>석재</span><b id="stone">0</b></div>
+<div class="row" id="metalRow"><span>금속</span><b id="metal">0</b></div>
+
+<h2>중점 계획</h2>
+<div class="slider-row"><label><span>식량</span><b id="pFoodV"></b></label><input id="pFood" type="range" min="0" max="100" value="30"></div>
+<div class="slider-row"><label><span>목재</span><b id="pWoodV"></b></label><input id="pWood" type="range" min="0" max="100" value="35"></div>
+<div class="slider-row"><label><span>건설</span><b id="pBuildV"></b></label><input id="pBuild" type="range" min="0" max="100" value="25"></div>
+<div class="slider-row"><label><span>방어</span><b id="pDefenseV"></b></label><input id="pDefense" type="range" min="0" max="100" value="20"></div>
+<div class="slider-row" id="pResearchRow"><label><span>연구</span><b id="pResearchV"></b></label><input id="pResearch" type="range" min="0" max="100" value="20"></div>
+<div class="slider-row" id="pStoneRow"><label><span>석재</span><b id="pStoneV"></b></label><input id="pStone" type="range" min="0" max="100" value="20"></div>
+<div class="slider-row" id="pMetalRow"><label><span>금속</span><b id="pMetalV"></b></label><input id="pMetal" type="range" min="0" max="100" value="20"></div>
+<button id="followMode">주민 유도 모드: OFF</button>
+<button id="emergency">비상 방어령: OFF</button>
+
+<h2>건설</h2>
+<button id="buildHut">움막 — 목재 20 / 수용 +2</button>
+<button id="buildFarm">농장 — 목재 35 / 식량 생산</button>
+<button id="buildCampfire">모닥불 — 목재 25 / 지식 생산</button>
+<button id="buildStorage">저장고 — 목재 45 / 채집 보너스</button>
+<button id="buildFence">목책 — 목재 8 / 적 이동 차단</button>
+<button id="buildTower">감시탑 — 목재 45 / 초반 자동 공격</button>
+<button id="buildMine">광산 — 목재 50, 석재 20 / 금속 채굴</button>
+
+<h2>가지형 연구</h2>
+<button id="techWriting">문자 — 지식 30 / 연구 중점 해금</button>
+<button id="techAgriculture">농업 — 지식 40 / 농장 강화</button>
+<button id="techStonework">석공 — 지식 45 / 석재 채집 효율·감시탑 강화</button>
+<button id="techMining">채광 — 지식 60, 석재 30 / 금속·광산 해금</button>
+<button id="techBronze">청동 제련 — 지식 90, 금속 40 / 청동기 조건</button>
+
+<h2>로그</h2>
+<div id="log"></div>
+</div>
+<div id="hint">
+WASD/방향키: 카메라 이동 · 휠: 줌<br>
+주민 유도 모드 ON: 주민들이 마우스 위치를 따라감<br>석재는 처음부터 채집 가능<br>
+적과 겹칠 정도로 가까울 때만 주민이 자동 반격
+</div>
+
+<script>
+(()=> {
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const TILE=32, MAP_W=70, MAP_H=52;
+const CUBE={x:35,y:26,hp:120,maxHp:120};
+const $=id=>document.getElementById(id);
+const ids=["era","cubeHp","wave","pop","food","wood","knowledge","stone","metal","stoneRow","metalRow","log",
+"pFood","pWood","pBuild","pDefense","pResearch","pStone","pMetal","pFoodV","pWoodV","pBuildV","pDefenseV","pResearchV","pStoneV","pMetalV",
+"pResearchRow","pStoneRow","pMetalRow","followMode","emergency",
+"buildHut","buildFarm","buildCampfire","buildStorage","buildFence","buildTower","buildMine",
+"techWriting","techAgriculture","techStonework","techMining","techBronze"];
+const ui={}; ids.forEach(id=>ui[id]=$(id));
+
+const state={
+era:"부족",food:85,wood:75,knowledge:0,stone:0,metal:0,populationCap:7,
+citizens:[],buildings:[],enemies:[],projectiles:[],floating:[],
+selectedBuild:null,logs:["블랙큐브 주변에 첫 부족이 모였습니다."],
+camera:{x:CUBE.x*TILE,y:CUBE.y*TILE,zoom:1},keys:{},mouseWorld:null,
+popTimer:0,waveTimer:45,waveNo:0,gameOver:false,emergency:false,followMode:false,
+tech:{writing:false,agriculture:false,stonework:false,mining:false,bronze:false}
+};
+
+const buildDefs={
+hut:{name:"움막",cost:{wood:20},size:1,color:"#8a623d",buildTime:4,unlock:()=>true,done(){state.populationCap+=2;log("움막 완성: 인구 수용량 +2");}},
+farm:{name:"농장",cost:{wood:35},size:2,color:"#8ca24a",buildTime:6,unlock:()=>true,done(){log("농장 완성: 식량 자동 생산");}},
+campfire:{name:"모닥불",cost:{wood:25},size:1,color:"#c26b35",buildTime:5,unlock:()=>true,done(){log("모닥불 완성: 지식 생산 시작");}},
+storage:{name:"저장고",cost:{wood:45},size:2,color:"#b7a06a",buildTime:7,unlock:()=>true,done(){log("저장고 완성: 채집 효율 증가");}},
+fence:{name:"목책",cost:{wood:8},size:1,color:"#6b4a2d",buildTime:1.8,wall:true,unlock:()=>true,done(){}},
+tower:{name:"감시탑",cost:{wood:45},size:1,color:"#6d7180",buildTime:6,unlock:()=>true,done(){log("감시탑 완성: 자동 공격 시작");}},
+mine:{name:"광산",cost:{wood:50,stone:20},size:2,color:"#4b4b55",buildTime:8,unlock:()=>state.tech.mining,done(){log("광산 완성: 금속 채굴 가능");}}
+};
+const techDefs={
+writing:{cost:{knowledge:30},req:()=>true,done(){state.tech.writing=true;log("문자 연구 완료: 연구 중점 해금");}},
+agriculture:{cost:{knowledge:40},req:()=>true,done(){state.tech.agriculture=true;log("농업 연구 완료: 농장 생산량 증가");}},
+stonework:{cost:{knowledge:45},req:()=>state.tech.writing,done(){state.tech.stonework=true;log("석공 연구 완료: 석재 채집 효율과 감시탑 강화");}},
+mining:{cost:{knowledge:60,stone:30},req:()=>state.tech.stonework,done(){state.tech.mining=true;log("채광 연구 완료: 금속 자원과 광산 해금");}},
+bronze:{cost:{knowledge:90,metal:40},req:()=>state.tech.mining,done(){state.tech.bronze=true;state.era="청동기";log("청동 제련 완료: 청동기 시대 판정 달성!");}}
+};
+
+const tiles=[];
+for(let y=0;y<MAP_H;y++){
+ tiles[y]=[];
+ for(let x=0;x<MAP_W;x++){
+  const border=x<3||y<3||x>MAP_W-4||y>MAP_H-4;
+  let type="grass"; const r=Math.random();
+  if(border&&r<.18)type="water";
+  else if(r<.085)type="tree";
+  else if(r<.13)type="berry";
+  else if(r<.18)type="stone";
+  tiles[y][x]={type,amount:type==="tree"?60:type==="berry"?42:type==="stone"?55:0};
+ }
+}
+tiles[CUBE.y][CUBE.x].type="cube";
+
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight} addEventListener("resize",resize);resize();
+function log(t){state.logs.unshift(t);state.logs=state.logs.slice(0,5)}
+function afford(cost){return Object.entries(cost).every(([k,v])=>state[k]>=v)}
+function pay(cost){for(const[k,v]of Object.entries(cost))state[k]-=v}
+function float(t,x,y){state.floating.push({t,x,y,life:1.1})}
+function spawnCitizen(x,y){state.citizens.push({x:x+Math.random()*2-1,y:y+Math.random()*2-1,tx:x,ty:y,speed:1.7+Math.random()*.35,task:"idle",timer:0,target:null,hp:30,maxHp:30,attackTimer:0})}
+for(let i=0;i<5;i++)spawnCitizen(CUBE.x+2,CUBE.y+2);
+
+function buildingAt(x,y){return state.buildings.find(b=>x>=b.x&&y>=b.y&&x<b.x+b.size&&y<b.y+b.size)}
+function blocked(x,y){if(x<0||y<0||x>=MAP_W||y>=MAP_H)return true;if(tiles[y][x].type==="water"||tiles[y][x].type==="cube")return true;return !!buildingAt(x,y)}
+function place(kind,tx,ty){
+ if(state.gameOver)return; const def=buildDefs[kind];
+ if(!def.unlock()){log("아직 해금되지 않은 건물입니다.");return}
+ for(let yy=ty;yy<ty+def.size;yy++)for(let xx=tx;xx<tx+def.size;xx++){if(blocked(xx,yy)){log("여기에는 건설할 수 없습니다.");return}}
+ if(!afford(def.cost)){log("자원이 부족합니다.");return}
+ pay(def.cost);
+ const hp=kind==="fence"?90:kind==="tower"?(state.tech.stonework?180:130):140;
+ state.buildings.push({kind,name:def.name,x:tx,y:ty,size:def.size,color:def.color,progress:0,buildTime:def.buildTime,complete:false,hp,maxHp:hp,cool:0});
+ log(def.name+" 청사진 배치");
+}
+function research(key){const t=techDefs[key];if(state.tech[key])return;if(!t.req()){log("선행 연구가 필요합니다.");return}if(!afford(t.cost)){log("연구 자원이 부족합니다.");return}pay(t.cost);t.done()}
+
+ui.techWriting.onclick=()=>research("writing");ui.techAgriculture.onclick=()=>research("agriculture");ui.techStonework.onclick=()=>research("stonework");ui.techMining.onclick=()=>research("mining");ui.techBronze.onclick=()=>research("bronze");
+for(const[id,kind]of[["buildHut","hut"],["buildFarm","farm"],["buildCampfire","campfire"],["buildStorage","storage"],["buildFence","fence"],["buildTower","tower"],["buildMine","mine"]])ui[id].onclick=()=>{state.selectedBuild=state.selectedBuild===kind?null:kind};
+ui.emergency.onclick=()=>{state.emergency=!state.emergency;log(state.emergency?"비상 방어령 발동: 주민들이 직접 방어에 참여합니다.":"비상 방어령 해제");};
+ui.followMode.onclick=()=>{state.followMode=!state.followMode;log(state.followMode?"주민 유도 모드 ON: 주민들이 마우스를 따라갑니다.":"주민 유도 모드 OFF: 주민들이 다시 자율 행동합니다.");};
+
+function nearestEnemy(x,y,range=999){let best=null,bd=range;for(const e of state.enemies){const d=Math.hypot(e.x-x,e.y-y);if(d<bd){bd=d;best=e}}return best}
+function enemyNearCore(range){return state.enemies.find(e=>Math.hypot(e.x-(CUBE.x+.5),e.y-(CUBE.y+.5))<range)}
+function priority(){
+ const p={food:+ui.pFood.value,wood:+ui.pWood.value,build:+ui.pBuild.value,defense:+ui.pDefense.value,research:state.tech.writing?+ui.pResearch.value:0,stone:+ui.pStone.value,metal:state.tech.mining?+ui.pMetal.value:0};
+ if(state.emergency)p.defense+=100;
+ if(enemyNearCore(5))p.defense+=70;
+ if(state.food<state.citizens.length*8)p.food+=90;
+ if(!state.buildings.some(b=>!b.complete))p.build=Math.max(1,p.build*.25);
+ return p;
+}
+function pickWeighted(w){const entries=Object.entries(w).filter(([k,v])=>v>0),sum=entries.reduce((a,[k,v])=>a+v,0);let r=Math.random()*sum;for(const[k,v]of entries){r-=v;if(r<=0)return k}return"food"}
+function nearestResource(cx,cy,kind){let best=null,bd=1e9;for(let y=0;y<MAP_H;y++)for(let x=0;x<MAP_W;x++){const t=tiles[y][x];let ok=false;if(kind==="food")ok=t.type==="berry"&&t.amount>0;if(kind==="wood")ok=t.type==="tree"&&t.amount>0;if(kind==="stone")ok=t.type==="stone"&&t.amount>0;if(!ok)continue;const d=Math.abs(cx-x)+Math.abs(cy-y);if(d<bd){bd=d;best={x,y,kind,type:t.type}}}return best}
+function incompleteBuilding(){return state.buildings.filter(b=>!b.complete).sort((a,b)=>Math.abs(a.x-CUBE.x)+Math.abs(a.y-CUBE.y)-Math.abs(b.x-CUBE.x)-Math.abs(b.y-CUBE.y))[0]}
+
+function setFollowTarget(c){
+ if(!state.mouseWorld)return false;
+ const tx=state.mouseWorld.x/TILE,ty=state.mouseWorld.y/TILE;
+ if(tx<1||ty<1||tx>MAP_W-2||ty>MAP_H-2)return false;
+ c.task="follow";c.target=null;
+ c.tx=tx+(Math.random()-.5)*1.8;
+ c.ty=ty+(Math.random()-.5)*1.8;
+ return true;
+}
+
+function chooseTask(c){
+ if(state.followMode && setFollowTarget(c)) return;
+
+ const contact=nearestEnemy(c.x,c.y,.85);
+ if(contact){c.task="fight";c.target=contact;c.tx=contact.x;c.ty=contact.y;return}
+
+ const job=pickWeighted(priority());
+ if(job==="defense"){
+  let e=null;
+  if(state.emergency) e=nearestEnemy(c.x,c.y,8);
+  else e=enemyNearCore(4.5);
+  if(e){c.task="fight";c.target=e;c.tx=e.x;c.ty=e.y;return}
+  c.task="guard";c.tx=CUBE.x+Math.random()*5-2.5;c.ty=CUBE.y+Math.random()*5-2.5;return;
+ }
+ if(job==="build"){const b=incompleteBuilding();if(b){c.task="build";c.target=b;c.tx=b.x+b.size/2;c.ty=b.y+b.size/2;return}}
+ if(job==="research"&&state.tech.writing){const fire=state.buildings.find(b=>b.kind==="campfire"&&b.complete);if(fire){c.task="research";c.target=fire;c.tx=fire.x+.5;c.ty=fire.y+.5;return}}
+ if(job==="metal"&&state.tech.mining){const mine=state.buildings.find(b=>b.kind==="mine"&&b.complete);if(mine){c.task="metal";c.target=mine;c.tx=mine.x+1;c.ty=mine.y+1;return}}
+ const resKind=["food","wood","stone"].includes(job)?job:(state.food<50?"food":"wood");
+ const r=nearestResource(c.x,c.y,resKind);if(r){c.task="gather";c.target=r;c.tx=r.x+.5;c.ty=r.y+.5;return}
+ c.task="idle";c.tx=CUBE.x+Math.random()*5-2.5;c.ty=CUBE.y+Math.random()*5-2.5;
+}
+
+function updateCitizen(c,dt){
+ if(c.hp<=0)return;
+
+ if(state.followMode && c.task!=="fight"){
+   const contact=nearestEnemy(c.x,c.y,.72);
+   if(contact){c.task="fight";c.target=contact;}
+   else setFollowTarget(c);
+ }
+
+ if(c.task==="fight"&&c.target&&c.target.hp>0){c.tx=c.target.x;c.ty=c.target.y}
+ const dx=c.tx-c.x,dy=c.ty-c.y,d=Math.hypot(dx,dy);
+ if(d>.08){c.x+=dx/d*c.speed*dt;c.y+=dy/d*c.speed*dt;return}
+ c.timer+=dt;
+
+ if(c.task==="follow"){
+   if(!state.followMode){chooseTask(c);return}
+   setFollowTarget(c);
+   return;
+ }
+
+ if(c.task==="fight"){
+  const e=c.target;
+  if(!e||e.hp<=0){chooseTask(c);return}
+  const dist=Math.hypot(e.x-c.x,e.y-c.y);
+  if(dist>1.05){c.tx=e.x;c.ty=e.y;return}
+  c.attackTimer+=dt;
+  if(c.attackTimer>.65){c.attackTimer=0;e.hp-=state.tech.stonework?5:3;float("반격",e.x,e.y-.4)}
+  return;
+ }
+ if(c.timer<.55)return; c.timer=0;
+ if(c.task==="build"){const b=c.target;if(!b||b.complete){chooseTask(c);return}b.progress+=.8;if(b.progress>=b.buildTime){b.complete=true;buildDefs[b.kind].done();float("완성",b.x+.3,b.y)}chooseTask(c);return}
+ if(c.task==="research"){state.knowledge+=.8;float("+지식",c.x,c.y-.4);chooseTask(c);return}
+ if(c.task==="metal"){state.metal+=.9;float("+금속",c.x,c.y-.4);chooseTask(c);return}
+ if(c.task==="gather"){const r=c.target,t=tiles[r.y]?.[r.x];if(!t||t.amount<=0){chooseTask(c);return}let bonus=state.buildings.some(b=>b.kind==="storage"&&b.complete)?1.25:1;if(r.kind==="stone"&&state.tech.stonework)bonus*=1.35;const gain=Math.ceil(5*bonus);t.amount-=gain;if(r.kind==="food"){state.food+=gain;float("+"+gain+" 식량",c.x,c.y-.4)}if(r.kind==="wood"){state.wood+=gain;float("+"+gain+" 목재",c.x,c.y-.4)}if(r.kind==="stone"){state.stone+=gain;float("+"+gain+" 석재",c.x,c.y-.4)}if(t.amount<=0)t.type="grass";chooseTask(c);return}
+ chooseTask(c);
+}
+function updateEconomy(dt){
+ const farms=state.buildings.filter(b=>b.kind==="farm"&&b.complete).length,fires=state.buildings.filter(b=>b.kind==="campfire"&&b.complete).length;
+ state.food+=farms*(state.tech.agriculture?2.1:1.05)*dt;state.knowledge+=fires*.22*dt;state.food-=state.citizens.length*.07*dt;if(state.food<0)state.food=0;
+ state.popTimer+=dt;if(state.popTimer>13&&state.food>80&&state.citizens.length<state.populationCap){state.popTimer=0;state.food-=25;spawnCitizen(CUBE.x+2,CUBE.y+2);log("인구가 증가했습니다.")}
+}
+function spawnWave(){
+ state.waveNo++;const count=2+Math.floor(state.waveNo*1.35)+Math.floor(state.citizens.length/7);
+ for(let i=0;i<count;i++){const side=Math.floor(Math.random()*4);let x,y;if(side===0){x=Math.random()*MAP_W;y=1}if(side===1){x=Math.random()*MAP_W;y=MAP_H-2}if(side===2){x=1;y=Math.random()*MAP_H}if(side===3){x=MAP_W-2;y=Math.random()*MAP_H}state.enemies.push({x,y,hp:18+state.waveNo*3,maxHp:18+state.waveNo*3,speed:.78+state.waveNo*.02,attackTimer:0})}
+ log("외부 세력 웨이브 "+state.waveNo+" 접근!");
+}
+function updateEnemies(dt){
+ state.waveTimer-=dt;if(state.waveTimer<=0){spawnWave();state.waveTimer=Math.max(22,38-state.waveNo*1.1)}
+ for(const e of state.enemies){
+  const c=state.citizens.find(c=>c.hp>0&&Math.hypot(c.x-e.x,c.y-e.y)<.8);
+  if(c){e.attackTimer+=dt;if(e.attackTimer>.75){c.hp-=4;e.attackTimer=0;if(c.hp<=0){log("주민 한 명이 쓰러졌습니다.");float("사망",c.x,c.y-.4)}}continue}
+  const b=state.buildings.find(b=>b.complete&&Math.abs((b.x+b.size/2)-e.x)+Math.abs((b.y+b.size/2)-e.y)<1.15);
+  if(b){e.attackTimer+=dt;if(e.attackTimer>.65){b.hp-=8;e.attackTimer=0;if(b.hp<=0){log(b.name+" 파괴됨");state.buildings=state.buildings.filter(x=>x!==b)}}continue}
+  const dx=CUBE.x+.5-e.x,dy=CUBE.y+.5-e.y,d=Math.hypot(dx,dy);
+  if(d<1.1){e.attackTimer+=dt;if(e.attackTimer>.55){CUBE.hp-=3;e.attackTimer=0;float("-3",CUBE.x,CUBE.y-1)}}
+  else{e.x+=dx/d*e.speed*dt;e.y+=dy/d*e.speed*dt}
+ }
+ state.enemies=state.enemies.filter(e=>e.hp>0);
+ state.citizens=state.citizens.filter(c=>c.hp>0);
+ if(CUBE.hp<=0&&!state.gameOver){state.gameOver=true;log("블랙큐브가 파괴되었습니다. 게임 오버.")}
+}
+function updateTowers(dt){
+ for(const b of state.buildings){
+  if(b.kind!=="tower"||!b.complete)continue;b.cool-=dt;if(b.cool>0)continue;
+  let target=null,bd=999,range=state.tech.stonework?8.5:6.5;
+  for(const e of state.enemies){const d=Math.hypot(e.x-(b.x+.5),e.y-(b.y+.5));if(d<range&&d<bd){bd=d;target=e}}
+  if(target){b.cool=state.tech.stonework?.7:1.05;state.projectiles.push({x:b.x+.5,y:b.y+.5,target,life:1})}
+ }
+ for(const p of state.projectiles){
+  if(!p.target||p.target.hp<=0){p.life=0;continue}
+  const dx=p.target.x-p.x,dy=p.target.y-p.y,d=Math.hypot(dx,dy);
+  if(d<.25){p.target.hp-=state.tech.stonework?20:13;p.life=0;float("명중",p.target.x,p.target.y-.3)}
+  else{p.x+=dx/d*11*dt;p.y+=dy/d*11*dt;p.life-=dt}
+ }
+ state.projectiles=state.projectiles.filter(p=>p.life>0);
+}
+
+function screenToWorld(sx,sy){return{x:(sx-canvas.width/2)/state.camera.zoom+state.camera.x,y:(sy-canvas.height/2)/state.camera.zoom+state.camera.y}}
+function worldToScreen(wx,wy){return{x:(wx-state.camera.x)*state.camera.zoom+canvas.width/2,y:(wy-state.camera.y)*state.camera.zoom+canvas.height/2}}
+function updateCamera(dt){const m=500*dt/state.camera.zoom;if(state.keys.ArrowLeft||state.keys.a)state.camera.x-=m;if(state.keys.ArrowRight||state.keys.d)state.camera.x+=m;if(state.keys.ArrowUp||state.keys.w)state.camera.y-=m;if(state.keys.ArrowDown||state.keys.s)state.camera.y+=m}
+
+function drawTile(x,y,t){const p=worldToScreen(x*TILE,y*TILE),z=TILE*state.camera.zoom;if(p.x+z<0||p.y+z<0||p.x>canvas.width||p.y>canvas.height)return;const colors={grass:"#314b2f",tree:"#205c2e",berry:"#4d6b31",stone:"#5e605e",water:"#253f62",cube:"#050505"};ctx.fillStyle=colors[t]||"#333";ctx.fillRect(p.x,p.y,z,z);ctx.strokeStyle="rgba(0,0,0,.13)";ctx.strokeRect(p.x,p.y,z,z);if(t==="tree"){ctx.fillStyle="#143f20";ctx.beginPath();ctx.arc(p.x+z*.5,p.y+z*.46,z*.28,0,Math.PI*2);ctx.fill()}if(t==="berry"){ctx.fillStyle="#c24a68";ctx.beginPath();ctx.arc(p.x+z*.62,p.y+z*.42,Math.max(2,z*.07),0,Math.PI*2);ctx.fill()}if(t==="cube"){ctx.fillStyle="#000";ctx.fillRect(p.x+z*.12,p.y+z*.12,z*.76,z*.76);ctx.strokeStyle="#9077ff";ctx.lineWidth=2;ctx.strokeRect(p.x+z*.12,p.y+z*.12,z*.76,z*.76);ctx.lineWidth=1}}
+function draw(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ for(let y=0;y<MAP_H;y++)for(let x=0;x<MAP_W;x++)drawTile(x,y,tiles[y][x].type);
+
+ if(state.followMode && state.mouseWorld){
+   const tx=state.mouseWorld.x,ty=state.mouseWorld.y,p=worldToScreen(tx,ty);
+   ctx.strokeStyle="rgba(120,210,255,.9)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,22*state.camera.zoom,0,Math.PI*2);ctx.stroke();ctx.lineWidth=1;
+   ctx.fillStyle="rgba(120,210,255,.18)";ctx.beginPath();ctx.arc(p.x,p.y,22*state.camera.zoom,0,Math.PI*2);ctx.fill();
+ }
+
+ for(const b of state.buildings){const p=worldToScreen(b.x*TILE,b.y*TILE),z=TILE*state.camera.zoom*b.size;ctx.fillStyle=b.complete?b.color:"#666";ctx.fillRect(p.x+3,p.y+3,z-6,z-6);ctx.strokeStyle="#111";ctx.strokeRect(p.x+3,p.y+3,z-6,z-6);ctx.fillStyle="#fff";ctx.font=`${Math.max(10,11*state.camera.zoom)}px sans-serif`;ctx.fillText(b.name,p.x+5,p.y+15);if(!b.complete){ctx.fillStyle="rgba(0,0,0,.55)";ctx.fillRect(p.x+5,p.y+z-12,z-10,6);ctx.fillStyle="#f0cf78";ctx.fillRect(p.x+5,p.y+z-12,(z-10)*Math.min(1,b.progress/b.buildTime),6)}if(b.complete&&b.hp<b.maxHp){ctx.fillStyle="#ff6666";ctx.fillRect(p.x+4,p.y+z-6,(z-8)*Math.max(0,b.hp/b.maxHp),3)}}
+ for(const c of state.citizens){const p=worldToScreen(c.x*TILE,c.y*TILE),r=Math.max(3,5*state.camera.zoom);ctx.fillStyle=c.task==="fight"?"#f1d37b":c.task==="follow"?"#8fd8ff":"#e7d2a4";ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.fillStyle="#111";ctx.fillRect(p.x-r*.6,p.y+r*.6,r*1.2,r*.45);if(c.hp<c.maxHp){ctx.fillStyle="#77ff77";ctx.fillRect(p.x-r,p.y-r-5,r*2*c.hp/c.maxHp,3)}}
+ for(const e of state.enemies){const p=worldToScreen(e.x*TILE,e.y*TILE),r=Math.max(4,6*state.camera.zoom);ctx.fillStyle="#9b2b2b";ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.fillStyle="#ffb0b0";ctx.fillRect(p.x-r,p.y-r-5,r*2*Math.max(0,e.hp/e.maxHp),3)}
+ ctx.fillStyle="#f6e27c";for(const pjt of state.projectiles){const p=worldToScreen(pjt.x*TILE,pjt.y*TILE);ctx.beginPath();ctx.arc(p.x,p.y,Math.max(2,3*state.camera.zoom),0,Math.PI*2);ctx.fill()}
+ for(const f of state.floating){const p=worldToScreen(f.x*TILE,f.y*TILE);ctx.globalAlpha=Math.max(0,f.life);ctx.fillStyle="#fff7b8";ctx.font="13px sans-serif";ctx.fillText(f.t,p.x,p.y);ctx.globalAlpha=1}
+ if(state.selectedBuild&&state.mouseWorld&&!state.followMode){const tx=Math.floor(state.mouseWorld.x/TILE),ty=Math.floor(state.mouseWorld.y/TILE),def=buildDefs[state.selectedBuild],p=worldToScreen(tx*TILE,ty*TILE),z=TILE*state.camera.zoom*def.size;ctx.fillStyle="rgba(240,207,120,.32)";ctx.fillRect(p.x,p.y,z,z)}
+ if(state.gameOver){ctx.fillStyle="rgba(0,0,0,.65)";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#fff";ctx.font="42px sans-serif";ctx.fillText("GAME OVER",canvas.width/2-120,canvas.height/2)}
+}
+function updateUI(){
+ ui.era.textContent=state.era;ui.cubeHp.textContent=Math.max(0,Math.floor(CUBE.hp))+" / "+CUBE.maxHp;ui.cubeHp.className=CUBE.hp<40?"danger":"ok";ui.wave.textContent=Math.ceil(state.waveTimer)+"초";ui.pop.textContent=`${state.citizens.length} / ${state.populationCap}`;ui.food.textContent=Math.floor(state.food);ui.wood.textContent=Math.floor(state.wood);ui.knowledge.textContent=Math.floor(state.knowledge);ui.stone.textContent=Math.floor(state.stone);ui.metal.textContent=Math.floor(state.metal);
+ ui.stoneRow.style.display="flex";ui.metalRow.style.display=state.tech.mining?"flex":"none";ui.pResearchRow.style.display=state.tech.writing?"block":"none";ui.pStoneRow.style.display="block";ui.pMetalRow.style.display=state.tech.mining?"block":"none";
+ for(const k of["Food","Wood","Build","Defense","Research","Stone","Metal"])ui["p"+k+"V"].textContent=ui["p"+k].value;
+ ui.emergency.textContent="비상 방어령: "+(state.emergency?"ON":"OFF");ui.emergency.classList.toggle("active",state.emergency);
+ ui.followMode.textContent="주민 유도 모드: "+(state.followMode?"ON":"OFF");ui.followMode.classList.toggle("active",state.followMode);
+ ui.log.innerHTML=state.logs.map(v=>"· "+v).join("<br>");
+ ui.buildMine.disabled=!state.tech.mining;
+ for(const[id,kind]of[["buildHut","hut"],["buildFarm","farm"],["buildCampfire","campfire"],["buildStorage","storage"],["buildFence","fence"],["buildTower","tower"],["buildMine","mine"]])ui[id].classList.toggle("active",state.selectedBuild===kind);
+ ui.techWriting.disabled=state.tech.writing||!afford(techDefs.writing.cost);ui.techAgriculture.disabled=state.tech.agriculture||!afford(techDefs.agriculture.cost);ui.techStonework.disabled=state.tech.stonework||!techDefs.stonework.req()||!afford(techDefs.stonework.cost);ui.techMining.disabled=state.tech.mining||!techDefs.mining.req()||!afford(techDefs.mining.cost);ui.techBronze.disabled=state.tech.bronze||!techDefs.bronze.req()||!afford(techDefs.bronze.cost)
+}
+
+canvas.addEventListener("mousemove",e=>state.mouseWorld=screenToWorld(e.clientX,e.clientY));
+canvas.addEventListener("click",e=>{if(state.followMode)return;if(!state.selectedBuild)return;const w=screenToWorld(e.clientX,e.clientY);place(state.selectedBuild,Math.floor(w.x/TILE),Math.floor(w.y/TILE))});
+canvas.addEventListener("wheel",e=>{e.preventDefault();state.camera.zoom=Math.max(.45,Math.min(2.2,state.camera.zoom*(e.deltaY<0?1.1:.9)))},{passive:false});
+addEventListener("keydown",e=>{state.keys[e.key]=true;if(e.key==="f"||e.key==="F"){state.followMode=!state.followMode;log(state.followMode?"주민 유도 모드 ON":"주민 유도 모드 OFF")}});
+addEventListener("keyup",e=>state.keys[e.key]=false);
+
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!state.gameOver){updateCamera(dt);for(const c of state.citizens)updateCitizen(c,dt);updateEconomy(dt);updateEnemies(dt);updateTowers(dt);for(const f of state.floating){f.life-=dt;f.y-=dt*.6}state.floating=state.floating.filter(f=>f.life>0)}draw();updateUI();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
